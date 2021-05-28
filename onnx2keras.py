@@ -511,6 +511,8 @@ class TfKerasOperations(Operations):
     def op_upsample(self, x, scales, mode=b'nearest'):
         if mode == b'nearest':
             return self.op_resize(x, None, scales, coordinate_transformation_mode=b'asymmetric', nearest_mode=b'floor')
+        if mode == b'linear':
+            return self.op_resize(x, None, scales, coordinate_transformation_mode=b'align_corners', mode=b'linear', nearest_mode=b'floor')
         raise NotImplementedError
 
     def op_resize(self, x, roi, scales=None, sizes=None, *,
