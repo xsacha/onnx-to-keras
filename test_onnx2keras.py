@@ -89,7 +89,8 @@ class TestOnnx:
 
     def test_prelu_per_channel(self):
         act = torch.nn.PReLU(num_parameters=16)
-        act.weight[:] = torch.tensor(range(16))
+        with torch.no_grad():
+            act.weight[:] = torch.tensor(range(16))
         net = torch.nn.Sequential(torch.nn.Conv2d(3, 16, 7), act)
         x = np.random.rand(1, 3, 224, 224).astype(np.float32)
         convert_and_compare_output(net, x, 5)
@@ -453,6 +454,3 @@ class TestOnnx:
     #     net.eval()
     #     x = np.random.rand(1, 3, 299, 299).astype(np.float32)
     #     convert_and_compare_output(net, x, image_out=False)
-
-
-
