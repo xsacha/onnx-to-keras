@@ -331,6 +331,22 @@ class TestOnnx:
         x = np.random.rand(1, 3, 32, 32).astype(np.float32)
         convert_and_compare_output(net, x, opset_version=11)
 
+    def test_interpolate_nearest(self):
+        class Net(Module):
+            def forward(self, x):
+                return F.interpolate(x, scale_factor=2, mode="nearest")
+        net = torch.nn.Sequential(Net(), torch.nn.ReLU())
+        x = np.random.rand(1, 3, 32, 32).astype(np.float32)
+        convert_and_compare_output(net, x)
+
+    def test_interpolate_bilinear(self):
+        class Net(Module):
+            def forward(self, x):
+                return F.interpolate(x, scale_factor=2, mode="bilinear", align_corners=True)
+        net = torch.nn.Sequential(Net(), torch.nn.ReLU())
+        x = np.random.rand(1, 3, 32, 32).astype(np.float32)
+        convert_and_compare_output(net, x, opset_version=11)
+
     def test_eq_mul(self):
         class EqProd(Module):
             def forward(self, x):
@@ -438,6 +454,3 @@ class TestOnnx:
     #     net.eval()
     #     x = np.random.rand(1, 3, 299, 299).astype(np.float32)
     #     convert_and_compare_output(net, x, image_out=False)
-
-
-

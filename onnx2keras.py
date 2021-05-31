@@ -97,13 +97,20 @@ class TfKerasOperations(Operations):
         return tensor
 
     def op_conv(self, x, weights, bias=None, kernel_shape=None, strides=None, pads=None, dilations=None, group=None):
+        # Torch: (out_channels, in_channels, kH, kW)
         weights = ensure_data_format(weights, OnnxConstant)  # XXX Assumes no ops on weights
         if len(kernel_shape) == 2:
             x = ensure_data_format(x, InterleavedImageBatch)
             assert kernel_shape == weights.shape[2:4]
             if group == 1:
+                # Tf; filter_height, filter_width, in_channels, out_channels
+                weights = weights.transpose(2, 3, 1, 0)
+                filters = weights.shape[3]
                 ConvClass = self.keras.layers.Conv2D
             elif group == x.shape[3]:
+                # Tf; filter_height, filter_width, out_channels, in_channels
+                weights = weights.transpose(2, 3, 0, 1)
+                filters = weights.shape[2]
                 def ConvClass(filters, kernel_size, strides, dilation_rate, padding,
                               kernel_initializer, use_bias=True, bias_initializer='zeros'):
                     return self.keras.layers.DepthwiseConv2D(kernel_size, strides, dilation_rate=dilation_rate,
@@ -126,21 +133,19 @@ class TfKerasOperations(Operations):
                 x = pad(x)
                 padding = 'valid'
 
-            # Tf; filter_height, filter_width, in_channels, out_channels
-            # Torch: (out_channels, in_channels, kH, kW)
-            weights = weights.transpose(2, 3, 1, 0)
-            weights_initializer = self.keras.initializers.Constant(weights.view(np.ndarray))
             if bias is None:
-                conv = ConvClass(weights.shape[3], kernel_shape, strides,
+                conv = ConvClass(filters, kernel_shape, strides,
                                  dilation_rate=dilations, padding=padding,
-                                 kernel_initializer=weights_initializer, use_bias=False)
+                                 kernel_initializer='zeros', use_bias=False)
+                out = conv(x)
+                conv.set_weights([weights.view(np.ndarray)])
             else:
                 bias = ensure_data_format(bias, OnnxConstant)  # XXX Assumes no ops on weights
-                bias_initializer = self.keras.initializers.Constant(bias.view(np.ndarray))
-                conv = ConvClass(weights.shape[3], kernel_shape, strides,
+                conv = ConvClass(filters, kernel_shape, strides,
                                  dilation_rate=dilations, padding=padding,
-                                 kernel_initializer=weights_initializer, bias_initializer=bias_initializer)
-            out = conv(x)
+                                 kernel_initializer='zeros', bias_initializer='zeros')
+                out = conv(x)
+                conv.set_weights([weights.view(np.ndarray), bias.view(np.ndarray)])
             out.data_format = InterleavedImageBatch
             return [out]
         else:
@@ -241,31 +246,36 @@ class TfKerasOperations(Operations):
             # Tf; filter_height, filter_width, out_channels, in_channels
             # Torch: (in_channels, out_channels, kH, kW)
             weights = weights.transpose(2, 3, 1, 0)
+            filters = weights.shape[2]
             if group == 1:
-                weights_initializer = self.keras.initializers.Constant(weights.view(np.ndarray))
-                if use_bias:
-                    bias_initializer = self.keras.initializers.Constant(bias.view(np.ndarray))
-                conv = self.keras.layers.Conv2DTranspose(weights.shape[2], kernel_shape, strides,
+                conv = self.keras.layers.Conv2DTranspose(filters, kernel_shape, strides,
                                                          dilation_rate=dilations, padding=padding,
-                                                         kernel_initializer=weights_initializer,
-                                                         use_bias=use_bias, bias_initializer=bias_initializer,
+                                                         kernel_initializer='zeros',
+                                                         use_bias=use_bias, bias_initializer='zeros',
                                                          output_padding=output_padding)
                 out = conv(x)
+                if use_bias:
+                    conv.set_weights([weights.view(np.ndarray), bias.view(np.ndarray)])
+                else:
+                    conv.set_weights([weights.view(np.ndarray)])
             else:
                 splits = tf.split(x, group, axis=-1)
                 convolved_splits = []
                 n = weights.shape[3] // group
                 assert group * n == weights.shape[3]
                 for i, split in enumerate(splits):
-                    weights_initializer = self.keras.initializers.Constant(weights[:, :, :, i*n:(i+1)*n].view(np.ndarray))
-                    if use_bias:
-                        bias_initializer = self.keras.initializers.Constant(bias[i*n:(i+1)*n].view(np.ndarray))
-                    conv = self.keras.layers.Conv2DTranspose(weights.shape[2], kernel_shape, strides,
+                    conv = self.keras.layers.Conv2DTranspose(filters, kernel_shape, strides,
                                                              dilation_rate=dilations, padding=padding,
-                                                             kernel_initializer=weights_initializer,
-                                                             use_bias=use_bias, bias_initializer=bias_initializer,
+                                                             kernel_initializer='zeros',
+                                                             use_bias=use_bias, bias_initializer='zeros',
                                                              output_padding=output_padding)
                     convolved_splits.append(conv(split))
+                    grouped_weights = weights[:, :, :, i*n:(i+1)*n]
+                    if use_bias:
+                        grouped_bias = bias[i*n:(i+1)*n]
+                        conv.set_weights([grouped_weights.view(np.ndarray), grouped_bias.view(np.ndarray)])
+                    else:
+                        conv.set_weights([grouped_weights.view(np.ndarray)])
                 out = tf.concat(convolved_splits, -1)
 
             assert out.shape[1] == h_out
@@ -337,10 +347,9 @@ class TfKerasOperations(Operations):
     def op_gemm(self, x, weights, bias, beta, transB, alpha):
         x = ensure_data_format(x, OnnxTensor)
         if beta == 1.0 and transB == 1 and alpha == 1.0:
-            weights_initializer = self.keras.initializers.Constant(weights.view(np.ndarray).T)
-            bias_initializer = self.keras.initializers.Constant(bias.view(np.ndarray))
-            out = self.keras.layers.Dense(weights.shape[0], kernel_initializer=weights_initializer,
-                                          bias_initializer=bias_initializer)(x)
+            out = self.keras.layers.Dense(weights.shape[0], kernel_initializer='zeros',
+                                          bias_initializer='zeros',
+                                          weights=[weights.view(np.ndarray).T, bias.view(np.ndarray)])(x)
             out.data_format = OnnxTensor
         else:
             raise NotImplementedError
@@ -502,6 +511,8 @@ class TfKerasOperations(Operations):
     def op_upsample(self, x, scales, mode=b'nearest'):
         if mode == b'nearest':
             return self.op_resize(x, None, scales, coordinate_transformation_mode=b'asymmetric', nearest_mode=b'floor')
+        if mode == b'linear':
+            return self.op_resize(x, None, scales, coordinate_transformation_mode=b'align_corners', mode=b'linear', nearest_mode=b'floor')
         raise NotImplementedError
 
     def op_resize(self, x, roi, scales=None, sizes=None, *,

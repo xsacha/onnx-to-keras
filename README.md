@@ -13,4 +13,8 @@ Usage
     python3 onnx2keras.py <infile.onnx> [<outfile.h5>]
 ```
 
-
+Run tests
+-----
+```
+    make
+```
