@@ -374,8 +374,9 @@ class TfKerasOperations(Operations):
         out.data_format = InterleavedImageBatch
         return [out]
 
-    def op_averagepool(self, x, kernel_shape, pads, strides):
+    def op_averagepool(self, x, kernel_shape, pads, strides, ceil_mode=0):
         x = ensure_data_format(x, InterleavedImageBatch)
+        assert ceil_mode == 0
         if len(x.shape) == 4:
             if pads == (0,0,0,0):
                 padding = 'valid'
