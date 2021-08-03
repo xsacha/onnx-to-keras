@@ -288,16 +288,10 @@ class TfKerasOperations(Operations):
     def op_batchnormalization(self, x, weight, bias, running_mean, running_var, momentum, epsilon):
         if  len(x.shape) != 4:
             raise NotImplementedError
-        moving_mean_initializer = self.keras.initializers.Constant(running_mean.view(np.ndarray))
-        moving_variance_initializer = self.keras.initializers.Constant(running_var.view(np.ndarray))
-        beta_initializer = self.keras.initializers.Constant(bias.view(np.ndarray))
-        gamma_initializer = self.keras.initializers.Constant(weight.view(np.ndarray))
-        norm = self.keras.layers.BatchNormalization(momentum=momentum, epsilon=epsilon,
-                                                    moving_mean_initializer=moving_mean_initializer,
-                                                    moving_variance_initializer=moving_variance_initializer,
-                                                    beta_initializer=beta_initializer,
-                                                    gamma_initializer=gamma_initializer)
+        norm = self.keras.layers.BatchNormalization(momentum=momentum, epsilon=epsilon)
         out = norm(x)
+        norm.set_weights([weight.view(np.ndarray), bias.view(np.ndarray),
+                          running_mean.view(np.ndarray), running_var.view(np.ndarray)])
         out.data_format = x.data_format
         return [out]
 
