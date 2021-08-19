@@ -551,7 +551,7 @@ class TfKerasOperations(Operations):
 
     def op_transpose(self, x, perm):
         x = ensure_data_format(x, OnnxConstant)
-        x = x.transpose(perm)
+        x = tf.transpose(x, perm)
         x.data_format = OnnxConstant
         return [x]
 
