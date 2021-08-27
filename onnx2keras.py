@@ -102,23 +102,21 @@ class TfKerasOperations(Operations):
         if len(kernel_shape) == 2:
             x = ensure_data_format(x, InterleavedImageBatch)
             assert kernel_shape == weights.shape[2:4]
-            if group == 1:
-                # Tf; filter_height, filter_width, in_channels, out_channels
-                weights = weights.transpose(2, 3, 1, 0)
-                filters = weights.shape[3]
-                ConvClass = self.keras.layers.Conv2D
-            elif group == x.shape[3]:
+            if group == x.shape[3]:
                 # Tf; filter_height, filter_width, out_channels, in_channels
                 weights = weights.transpose(2, 3, 0, 1)
                 filters = weights.shape[2]
-                def ConvClass(filters, kernel_size, strides, dilation_rate, padding,
+                def ConvClass(filters, kernel_size, strides, dilation_rate, padding, groups,
                               kernel_initializer, use_bias=True, bias_initializer='zeros'):
                     return self.keras.layers.DepthwiseConv2D(kernel_size, strides, dilation_rate=dilation_rate,
                                                              padding=padding, use_bias=use_bias,
                                                              bias_initializer=bias_initializer,
                                                              depthwise_initializer=kernel_initializer)
             else:
-                raise NotImplementedError
+                # Tf; filter_height, filter_width, in_channels, out_channels
+                weights = weights.transpose(2, 3, 1, 0)
+                filters = weights.shape[3]
+                ConvClass = self.keras.layers.Conv2D
             if pads == (0,0,0,0):
                 padding = 'valid'
             elif (kernel_shape[0] == kernel_shape[1] and pads[0] == pads[1] == pads[2] == pads[3] and
@@ -135,14 +133,14 @@ class TfKerasOperations(Operations):
 
             if bias is None:
                 conv = ConvClass(filters, kernel_shape, strides,
-                                 dilation_rate=dilations, padding=padding,
+                                 dilation_rate=dilations, padding=padding, groups=group,
                                  kernel_initializer='zeros', use_bias=False)
                 out = conv(x)
                 conv.set_weights([weights.view(np.ndarray)])
             else:
                 bias = ensure_data_format(bias, OnnxConstant)  # XXX Assumes no ops on weights
                 conv = ConvClass(filters, kernel_shape, strides,
-                                 dilation_rate=dilations, padding=padding,
+                                 dilation_rate=dilations, padding=padding, groups=group,
                                  kernel_initializer='zeros', bias_initializer='zeros')
                 out = conv(x)
                 conv.set_weights([weights.view(np.ndarray), bias.view(np.ndarray)])
