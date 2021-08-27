@@ -214,6 +214,11 @@ class TestOnnx:
         x = np.random.rand(1, 3, 224, 224).astype(np.float32)
         convert_and_compare_output(net, x)
 
+    def test_groupwise(self):
+        net = torch.nn.Conv2d(8, 8, 7, groups=4)
+        x = np.random.rand(1, 8, 224, 224).astype(np.float32)
+        convert_and_compare_output(net, x)
+
     def test_depthwise_no_bias(self):
         net = torch.nn.Sequential(torch.nn.Conv2d(3, 3, 7, groups=3, bias=False), torch.nn.ReLU())
         x = np.random.rand(1, 3, 224, 224).astype(np.float32)
