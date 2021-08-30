@@ -447,7 +447,7 @@ class TfKerasOperations(Operations):
         if axis == 0:
             return [self.make_constant(x[indices])]
         else:
-            raise NotImplementedError
+            return [tf.gather(x, self.make_constant(indices), axis=axis)]
 
     def op_cast(self, x, to):
         dtype = {
