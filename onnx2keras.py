@@ -207,6 +207,9 @@ class TfKerasOperations(Operations):
             out.data_format = InterleavedImageBatch
         elif all(t.data_format is OnnxConstant for t in tensors):
             out = self.make_constant(np.concatenate(tensors, axis))
+        elif all(t.data_format is OnnxTensor for t in tensors):
+            out = tf.concat(tensors, axis)
+            out.data_format = InterleavedImageBatch
         else:
             raise NotImplementedError
         return [out]
