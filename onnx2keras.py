@@ -102,7 +102,7 @@ class TfKerasOperations(Operations):
         if len(kernel_shape) == 2:
             x = ensure_data_format(x, InterleavedImageBatch)
             assert kernel_shape == weights.shape[2:4]
-            if group == x.shape[3]:
+            if group > 1 and group == x.shape[3]:
                 # Tf; filter_height, filter_width, out_channels, in_channels
                 weights = weights.transpose(2, 3, 0, 1)
                 filters = weights.shape[2]
