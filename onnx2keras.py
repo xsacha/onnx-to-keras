@@ -33,8 +33,10 @@ def ensure_data_format(tensor, format):
         out.data_format = InterleavedImageBatch
         return out
     elif tensor.data_format is InterleavedImageBatch and format is OnnxConstant:
-        assert len(tensor.shape) == 4
-        out = tf.transpose(tensor, [0, 3, 1, 2])
+        if len(tensor.shape) == 4:
+            out = tf.transpose(tensor, [0, 3, 1, 2])
+        else:
+            out = tensor
         out.data_format = OnnxConstant
         return out
     elif tensor.data_format is OnnxTensor and format is InterleavedImageBatch:
