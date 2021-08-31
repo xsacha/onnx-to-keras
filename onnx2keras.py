@@ -455,7 +455,8 @@ class TfKerasOperations(Operations):
         if axis == 0:
             return [self.make_constant(x[indices])]
         else:
-            raise NotImplementedError
+            return [tf.gather(x, indices,axis=axis)]
+            #raise NotImplementedError
 
     def op_cast(self, x, to):
         dtype = {
@@ -559,7 +560,7 @@ class TfKerasOperations(Operations):
 
     def op_transpose(self, x, perm):
         x = ensure_data_format(x, OnnxConstant)
-        x = x.transpose(perm)
+        x = tf.transpose(x,perm)
         x.data_format = OnnxConstant
         return [x]
 
