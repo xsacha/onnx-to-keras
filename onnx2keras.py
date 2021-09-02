@@ -62,7 +62,10 @@ def ensure_compatible_data_format(a, b):
     if compatible_data_format(a.data_format, b.data_format):
         return a, b
     if b.data_format is OnnxConstant:
-        return a, ensure_data_format(b, a.data_format)
+        if len(b.shape) == 0:
+            return a, tf.broadcast_to(b, a.shape)
+        else:
+            return a, ensure_data_format(b, a.data_format)
     return ensure_data_format(a, b.data_format), b
 
 class Constant(np.ndarray):
