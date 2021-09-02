@@ -179,6 +179,15 @@ class TestOnnx:
         x = np.random.rand(1, 3, 224, 224).astype(np.float32)
         convert_and_compare_output(net, x)
 
+    def test_batchnorm1d(self):
+        bn = torch.nn.BatchNorm1d(3)
+        bn.running_mean.uniform_()
+        bn.running_var.uniform_()
+        net = torch.nn.Sequential(GlobalAvgPool(), bn, torch.nn.ReLU())
+        net.eval()
+        x = np.random.rand(1, 3, 224, 224).astype(np.float32)
+        convert_and_compare_output(net, x, image_out=False)
+
     def test_clamp(self):
         class Clamp(Module):
             def forward(self, x):
