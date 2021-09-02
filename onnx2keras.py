@@ -214,7 +214,7 @@ class TfKerasOperations(Operations):
             out = self.make_constant(np.concatenate(tensors, axis))
         elif all(t.data_format is OnnxTensor for t in tensors):
             out = tf.concat(tensors, axis)
-            out.data_format = InterleavedImageBatch
+            out.data_format = OnnxTensor
         else:
             raise NotImplementedError
         return [out]
@@ -554,6 +554,10 @@ class TfKerasOperations(Operations):
         return [out]
 
     def op_transpose(self, x, perm):
+        if x.data_format is InterleavedImageBatch and tuple(perm) == (0, 2, 3, 1):
+            x = tf.identity(x)
+            x.data_format = OnnxConstant
+            return [x]
         x = ensure_data_format(x, OnnxConstant)
         x = tf.transpose(x, perm)
         x.data_format = OnnxConstant

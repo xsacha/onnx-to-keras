@@ -456,6 +456,42 @@ class TestOnnx:
         x = np.random.rand(4, 3, 16, 32).astype(np.float32)
         convert_and_compare_output(net, x, opset_version=11)
 
+    def test_concat_for_OnnxTensor(self):
+        batch = 4
+        class Net(Module):
+            def __init__(self):
+                super().__init__()
+                self.conv1 = torch.nn.Conv2d(3, 4, 5)
+                self.conv2 = torch.nn.Conv2d(3, 4, 5)
+                self.ClassHead = torch.nn.ModuleList([torch.nn.Conv2d(4, 16, 3), torch.nn.Conv2d(4, 16, 3)])
+            def forward(self, x):
+                features = [self.conv1(x), self.conv2(x)]
+                classifications = torch.cat([self.ClassHead[i](feature).reshape(batch, -1, 2) for i, feature in enumerate(features)], dim=1)
+                return classifications
+        x = np.random.rand(batch, 3, 16, 32).astype(np.float32)
+        convert_and_compare_output(Net(), x, missing_optimizations=True, image_out=False)
+
+    def test_transpose_to_onnx_testor(self):
+        class Net(Module):
+            def forward(self, x):
+                return x.permute(0,2,3,1)
+        x = np.random.rand(2, 3, 16, 32).astype(np.float32)
+        convert_and_compare_output(Net(), x, image_out=False)
+
+    def test_concat_for_OnnxTensor_optimized(self):
+        batch = 4
+        class Net(Module):
+            def __init__(self):
+                super().__init__()
+                self.conv1 = torch.nn.Conv2d(3, 4, 5)
+                self.conv2 = torch.nn.Conv2d(3, 4, 5)
+                self.ClassHead = torch.nn.ModuleList([torch.nn.Conv2d(4, 16, 3), torch.nn.Conv2d(4, 16, 3)])
+            def forward(self, x):
+                features = [self.conv1(x), self.conv2(x)]
+                classifications = torch.cat([self.ClassHead[i](feature).permute(0,2,3,1).reshape(batch, -1, 2) for i, feature in enumerate(features)], dim=1)
+                return classifications
+        x = np.random.rand(batch, 3, 16, 32).astype(np.float32)
+        convert_and_compare_output(Net(), x, image_out=False)
 
 
     # def test_inception_v3(self):
