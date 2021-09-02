@@ -286,8 +286,6 @@ class TfKerasOperations(Operations):
             raise NotImplementedError
 
     def op_batchnormalization(self, x, weight, bias, running_mean, running_var, momentum, epsilon):
-        if  len(x.shape) != 4:
-            raise NotImplementedError
         norm = self.keras.layers.BatchNormalization(momentum=momentum, epsilon=epsilon)
         out = norm(x)
         norm.set_weights([weight.view(np.ndarray), bias.view(np.ndarray),
