@@ -647,7 +647,48 @@ def onnx2keras(onnx_model):
     outputs = [tensors[o.name] for o in onnx_model.graph.output]
     return tf.keras.models.Model(model_inputs, outputs)
 
-def main(infile, outfile=None, export_saved_model=False):
+
+def verify(keras_model, onnx_model_file, decimals=2):
+    import onnxruntime
+    onnx_sess = onnxruntime.InferenceSession(onnx_model_file)
+
+    onnx_inputs = onnx_sess.get_inputs()
+    keras_inputs = keras_model.input
+    if not isinstance(keras_inputs, list):
+        keras_inputs = [keras_inputs]
+
+    assert len(keras_inputs) == len(onnx_inputs)
+
+    keras_indata = []
+    onnx_indata = {}
+    for onnx_input, keras_input in zip(onnx_inputs, keras_inputs):
+        assert keras_input.shape[0] == onnx_input.shape[0] # Batch
+        assert keras_input.shape[3] == onnx_input.shape[1] # Channels
+        assert keras_input.shape[1] == onnx_input.shape[2] # Height
+        assert keras_input.shape[2] == onnx_input.shape[3] # Width
+
+        indata = np.random.rand(*keras_input.shape).astype(keras_input.dtype.as_numpy_dtype)
+        keras_indata.append(indata)
+        onnx_indata[onnx_input.name] = indata.transpose(0, 3, 1, 2)
+
+    onnx_outdata = onnx_sess.run(None, onnx_indata)
+    keras_outdata = keras_model.predict(keras_indata)
+
+    if not isinstance(keras_outdata, list):
+        keras_outdata = [keras_outdata]
+
+    for onnx_out, keras_out in zip(onnx_outdata, keras_outdata):
+        if len(keras_out.shape) == 4:
+            warnings.warn("Found 4D output, assuming output is an image, transposing output when verifying model.")
+            keras_out = keras_out.transpose(0, 3, 1, 2)
+        try:
+            np.testing.assert_almost_equal(onnx_out, keras_out, decimals)
+            print("Output tensor matches to {} decimals!".format(decimals))
+        except Exception as e:
+            print(e)
+
+
+def main(infile, outfile=None, export_saved_model=False, verify_model=True):
     if outfile is None:
         outfile = infile[:-5] if infile[-5:] == '.onnx' else infile
         outfile += '.h5'
@@ -657,6 +698,9 @@ def main(infile, outfile=None, export_saved_model=False):
         tf_v1.keras.experimental.export_saved_model(model, export_saved_model)
     else:
         model.save(outfile)
+    if verify_model:
+        verify(model, infile)
+
 
 if __name__ == '__main__':
     from fire import Fire
