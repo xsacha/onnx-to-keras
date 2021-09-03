@@ -445,11 +445,12 @@ class TfKerasOperations(Operations):
         return [self.make_constant(shape)]
 
     def op_gather(self, x, indices, axis=0):
-        x = ensure_data_format(x, OnnxConstant)
-        if axis == 0:
+        if x.data_format is OnnxConstant and axis == 0:
             return [self.make_constant(x[indices])]
-        else:
+        elif x.data_format is OnnxTensor:
             return [tf.gather(x, self.make_constant(indices), axis=axis)]
+        else:
+            raise NotImplementedError
 
     def op_cast(self, x, to):
         dtype = {

@@ -18,6 +18,7 @@ from onnx2keras import onnx2keras, compatible_data_format, OnnxConstant, OnnxTen
 def make_onnx_model(net, indata, opset_version=None):
     fd = BytesIO()
     torch.onnx.export(net, indata, fd, opset_version=opset_version)
+    # with open("/tmp/t.onnx", "wb") as debug: torch.onnx.export(net, indata, debug, opset_version=opset_version)
     fd.seek(0)
     return onnx.load(fd)
 
@@ -497,6 +498,14 @@ class TestOnnx:
                 return classifications
         x = np.random.rand(batch, 3, 16, 32).astype(np.float32)
         convert_and_compare_output(Net(), x, image_out=False)
+
+    def test_gather(self):
+        class Net(Module):
+            def forward(self, x):
+                return x.permute(0,2,3,1).select(2,1)
+        net = torch.nn.Sequential(Net(), torch.nn.ReLU())
+        x = np.random.rand(2, 3, 16, 32).astype(np.float32)
+        convert_and_compare_output(net, x, image_out=False)
 
 
     # def test_inception_v3(self):
