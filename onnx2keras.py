@@ -546,6 +546,12 @@ class TfKerasOperations(Operations):
         out = self.keras.backend.equal(x, y)
         out.data_format = x.data_format
         return [out]
+    
+    def op_and(self, x, y):
+        x, y = ensure_compatible_data_format(x, y)
+        out = x & y
+        out.data_format = x.data_format
+        return [out]
 
     def op_reshape(self, x, shape):
         x = ensure_data_format(x, OnnxTensor)
