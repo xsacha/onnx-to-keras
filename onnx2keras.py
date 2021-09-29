@@ -553,6 +553,12 @@ class TfKerasOperations(Operations):
         out.data_format = x.data_format
         return [out]
 
+    def op_greater(self, x, y):
+        x, y = ensure_compatible_data_format(x, y)
+        out = self.keras.backend.greater(x, y)
+        out.data_format = x.data_format
+        return [out]
+
     def op_reshape(self, x, shape):
         x = ensure_data_format(x, OnnxTensor)
         assert x.shape[0] == shape[0]
